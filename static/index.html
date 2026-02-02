@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Crystals Case</title>
+  <style>
+    body{margin:0;background:#0b0b0f;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto}
+    .wrap{max-width:900px;margin:0 auto;padding:18px}
+    .card{background:#14141b;border-radius:18px;padding:16px;margin:14px 0}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{background:#2f6bff;color:#fff;border:none;border-radius:14px;padding:12px 16px;font-weight:700}
+    .btn2{background:#222232;color:#fff;border:none;border-radius:14px;padding:10px 14px}
+    .case{flex:1 1 240px;background:#171723;border-radius:18px;padding:14px}
+    .muted{opacity:.7}
+    input{width:100%;padding:10px;border-radius:12px;border:1px solid #2a2a3a;background:#0f0f16;color:#fff}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h2>💎 Crystals</h2>
+
+  <div class="card">
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <div>
+        <div class="muted">sizning balansingiz</div>
+        <div style="font-size:34px;font-weight:800" id="bal">0</div>
+      </div>
+      <div>
+        <button class="btn2" onclick="loadInventory()">🎒 Inventory</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="muted">Telegram ID (demo uchun)</div>
+    <input id="tg" placeholder="masalan: 5815294733" />
+    <div style="height:10px"></div>
+    <button class="btn" onclick="saveTg()">Ulash</button>
+  </div>
+
+  <div class="card">
+    <h3>📦 Keyslar</h3>
+    <div class="row" id="cases"></div>
+  </div>
+
+  <div class="card" id="result" style="display:none"></div>
+
+  <div class="card" id="inv" style="display:none"></div>
+</div>
+
+<script>
+  const API = location.origin;
+  function tgId(){ return localStorage.getItem("tg") || ""; }
+  function headers(){
+    return {"x-telegram-id": tgId(), "Content-Type":"application/json"};
+  }
+  async function saveTg(){
+    const v = document.getElementById("tg").value.trim();
+    localStorage.setItem("tg", v);
+    await refresh();
+  }
+  async function refresh(){
+    const tg = tgId();
+    document.getElementById("tg").value = tg;
+    if(!tg) return;
+
+    const me = await fetch(API+"/api/me",{headers:headers()}).then(r=>r.json());
+    document.getElementById("bal").innerText = me.balance;
+
+    const cases = await fetch(API+"/api/cases",{headers:headers()}).then(r=>r.json());
+    const root = document.getElementById("cases");
+    root.innerHTML = "";
+    cases.forEach(c=>{
+      const el = document.createElement("div");
+      el.className="case";
+      el.innerHTML = `
+        <div style="font-weight:800;font-size:18px">${c.title}</div>
+        <div class="muted">Narx: <b>${c.price}</b> coin</div>
+        <div style="height:10px"></div>
+        <button class="btn" onclick="openCase(${c.id})">Open</button>
+      `;
+      root.appendChild(el);
+    })
+  }
+
+  async function openCase(id){
+    const res = await fetch(API+"/api/open/"+id,{method:"POST",headers:headers()});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+
+    document.getElementById("result").style.display="block";
+    document.getElementById("result").innerHTML = `
+      <h3>🎉 Drop tushdi</h3>
+      <div><b>${data.drop.name}</b></div>
+      <div class="muted">Rarity: ${data.drop.rarity} • Value: ${data.drop.value} coin</div>
+      <div style="height:10px"></div>
+      <button class="btn2" onclick="loadInventory()">Inventoryga o‘tish</button>
+    `;
+    await refresh();
+  }
+
+  async function loadInventory(){
+    const inv = await fetch(API+"/api/inventory",{headers:headers()}).then(r=>r.json());
+    const box = document.getElementById("inv");
+    box.style.display="block";
+    box.innerHTML = `<h3>🎒 Inventory</h3>` + inv.map(i=>`
+      <div class="card" style="margin:10px 0">
+        <div style="font-weight:800">${i.name}</div>
+        <div class="muted">rarity: ${i.rarity} • value: ${i.value} • status: ${i.status}</div>
+        <div style="height:8px"></div>
+        <button class="btn2" onclick="sell(${i.inv_id})">Sotish</button>
+        <button class="btn2" onclick="withdraw(${i.inv_id})">Withdraw</button>
+      </div>
+    `).join("");
+    await refresh();
+  }
+
+  async function sell(invId){
+    const res = await fetch(API+"/api/sell/"+invId,{method:"POST",headers:headers()});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    await loadInventory();
+  }
+
+  async function withdraw(invId){
+    const note = prompt("Steam trade link yoki izoh (ixtiyoriy):") || "";
+    const res = await fetch(API+"/api/withdraw/"+invId,{method:"POST",headers:headers(),body:JSON.stringify({note})});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    alert("Withdraw so‘rovi yuborildi ✅");
+    await loadInventory();
+  }
+
+  refresh();
+</script>
+</body>
+</html>
