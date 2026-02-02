@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin</title>
+  <style>
+    body{margin:0;background:#0b0b0f;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto}
+    .wrap{max-width:900px;margin:0 auto;padding:18px}
+    .card{background:#14141b;border-radius:18px;padding:16px;margin:14px 0}
+    input{width:100%;padding:10px;border-radius:12px;border:1px solid #2a2a3a;background:#0f0f16;color:#fff}
+    .btn{background:#2f6bff;color:#fff;border:none;border-radius:14px;padding:12px 16px;font-weight:700}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .muted{opacity:.7}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h2>🔐 Admin Panel</h2>
+
+  <div class="card">
+    <div class="muted">Admin token (main.py dagi ADMIN_TOKEN)</div>
+    <input id="tok" placeholder="CHANGE_ME_SUPER_SECRET" />
+  </div>
+
+  <div class="card">
+    <h3>➕ User balans qo‘shish</h3>
+    <div class="row">
+      <input id="tg" placeholder="telegram_id" />
+      <input id="amt" placeholder="amount" />
+    </div>
+    <div style="height:10px"></div>
+    <button class="btn" onclick="addBal()">Add</button>
+  </div>
+
+  <div class="card">
+    <h3>🧩 Item yaratish</h3>
+    <input id="iname" placeholder="name" />
+    <div style="height:8px"></div>
+    <input id="irarity" placeholder="rarity (common/rare/epic/legendary)" />
+    <div style="height:8px"></div>
+    <input id="ivalue" placeholder="value (coin)" />
+    <div style="height:8px"></div>
+    <button class="btn" onclick="createItem()">Create item</button>
+    <div id="itemOut" class="muted" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h3>📦 Case yaratish</h3>
+    <input id="ctitle" placeholder="title" />
+    <div style="height:8px"></div>
+    <input id="cprice" placeholder="price (coin)" />
+    <div style="height:8px"></div>
+    <button class="btn" onclick="createCase()">Create case</button>
+    <div id="caseOut" class="muted" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h3>➕ Case ichiga item qo‘shish</h3>
+    <div class="row">
+      <input id="caseId" placeholder="case_id" />
+      <input id="itemId" placeholder="item_id" />
+      <input id="weight" placeholder="weight (1..100)" />
+    </div>
+    <div style="height:10px"></div>
+    <button class="btn" onclick="addCaseItem()">Add</button>
+  </div>
+
+  <div class="card">
+    <h3>📤 Withdraw requests</h3>
+    <button class="btn" onclick="loadWithdraws()">Refresh</button>
+    <div id="wout" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<script>
+  const API = location.origin;
+  function h(){ return {"x-admin-token": document.getElementById("tok").value.trim(),"Content-Type":"application/json"}; }
+
+  async function addBal(){
+    const telegram_id = parseInt(document.getElementById("tg").value);
+    const amount = parseInt(document.getElementById("amt").value);
+    const res = await fetch(API+"/api/admin/add_balance",{method:"POST",headers:h(),body:JSON.stringify({telegram_id,amount})});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    alert("OK");
+  }
+
+  async function createItem(){
+    const name = document.getElementById("iname").value.trim();
+    const rarity = document.getElementById("irarity").value.trim() || "common";
+    const value = parseInt(document.getElementById("ivalue").value);
+    const res = await fetch(API+"/api/admin/create_item",{method:"POST",headers:h(),body:JSON.stringify({name,rarity,value,image:""})});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    document.getElementById("itemOut").innerText = "item_id: "+data.item_id;
+  }
+
+  async function createCase(){
+    const title = document.getElementById("ctitle").value.trim();
+    const price = parseInt(document.getElementById("cprice").value);
+    const res = await fetch(API+"/api/admin/create_case",{method:"POST",headers:h(),body:JSON.stringify({title,price,cover:""})});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    document.getElementById("caseOut").innerText = "case_id: "+data.case_id;
+  }
+
+  async function addCaseItem(){
+    const case_id = parseInt(document.getElementById("caseId").value);
+    const item_id = parseInt(document.getElementById("itemId").value);
+    const weight = parseInt(document.getElementById("weight").value || "1");
+    const res = await fetch(API+"/api/admin/add_case_item",{method:"POST",headers:h(),body:JSON.stringify({case_id,item_id,weight})});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    alert("OK");
+  }
+
+  async function loadWithdraws(){
+    const res = await fetch(API+"/api/admin/withdraws",{headers:h()});
+    const data = await res.json();
+    if(!res.ok){ alert(data.detail || "xato"); return; }
+    document.getElementById("wout").innerHTML = data.map(x=>`
+      <div style="padding:12px;border:1px solid #2a2a3a;border-radius:14px;margin:10px 0">
+        <div><b>#${x.id}</b> tg: ${x.telegram_id} • status: ${x.status}</div>
+        <div class="muted">${x.name} (${x.rarity}) value:${x.value}</div>
+        <div class="muted">note: ${x.note || ""}</div>
+      </div>
+    `).join("");
+  }
+</script>
+</body>
+</html>
